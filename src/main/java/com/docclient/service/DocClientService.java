@@ -16,9 +16,13 @@ public interface DocClientService {
 
     String downloadFile(String path);
 
-    String getFoldersContents();
+    String getFoldersContents(String path);
 
     Body deleteFile(String path) throws Exception;
+
+//    Body deleteFiles(HttpServletRequest request, String path) throws Exception;
+
+
 
 
 }

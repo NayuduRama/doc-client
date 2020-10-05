@@ -1,6 +1,7 @@
 package com.docclient.service.impl;
 
 import com.docclient.exceptionhandling.ServiceException;
+import com.docclient.interceptor.ExceptionHandlingInterceptor;
 import com.docclient.service.DocClientService;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
@@ -9,12 +10,12 @@ import com.mashape.unirest.request.body.Body;
 import com.mashape.unirest.request.body.MultipartBody;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
 import java.io.BufferedReader;
@@ -26,14 +27,18 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.HashMap;
 import java.util.Map;
-
+import static com.docclient.util.ServiceConstants.ACCEPT;
 import static com.docclient.util.ServiceConstants.AUTHORIZATION;
 import static com.docclient.util.ServiceConstants.BASE_URL;
-import static com.docclient.util.ServiceConstants.CONTENT_TYPE;
+import static com.docclient.util.ServiceConstants.ACCEPT_VALUE;
+import static com.docclient.util.ServiceConstants.SLASH;
 import static com.mashape.unirest.http.Unirest.get;
 
 @RestController
 public class DocClientServiceImpl implements DocClientService {
+
+    @Autowired
+    ExceptionHandlingInterceptor exceptionHandlingInterceptor;
 
     private static String URL = BASE_URL + "/files";
 
@@ -43,9 +48,8 @@ public class DocClientServiceImpl implements DocClientService {
 
         try {
             Map<String, String> inputHeaders = new HashMap<>();
-            inputHeaders.put("accept", "application/json");
-            inputHeaders.put("Authorization", "User xcuw8px3IW28+zOIxdrj0euP0x5ZLbGMG/+m6WvKmvg=, Organization " +
-                    "a0d31a32c4f77aef4ada3b2ef3d4e0be, Element +RVlDJdvXH5IHauT2mQfJsSsdLQVwbFS7xXheatMCXI=");
+            inputHeaders.put("accept", exceptionHandlingInterceptor.getAcceptValue());
+            inputHeaders.put("Authorization", exceptionHandlingInterceptor.getAuthHeader());
             Map<String, Object> inputQuery = new HashMap<>();
             inputQuery.put("path", path);
             Part part = request.getPart("file");
@@ -69,8 +73,8 @@ public class DocClientServiceImpl implements DocClientService {
 
         try {
             Map<String, String> inputHeaders = new HashMap<>();
-            inputHeaders.put("accept", CONTENT_TYPE);
-            inputHeaders.put("Authorization", AUTHORIZATION);
+            inputHeaders.put("accept", exceptionHandlingInterceptor.getAcceptValue());
+            inputHeaders.put("Authorization", exceptionHandlingInterceptor.getAuthHeader());
             Map<String, Object> inputQuery = new HashMap<>();
             inputQuery.put("path", path);
             HttpResponse<InputStream> response =
@@ -102,16 +106,16 @@ public class DocClientServiceImpl implements DocClientService {
 
     @Override
     @RequestMapping(value = "/search", method = RequestMethod.GET)
-    public String getFoldersContents() {
+    public String getFoldersContents(@RequestParam("path") String path) {
 
         try {
             Map<String, String> inputHeaders = new HashMap<>();
-            inputHeaders.put("accept", CONTENT_TYPE);
-            inputHeaders.put("Authorization", AUTHORIZATION);
+            inputHeaders.put("accept", exceptionHandlingInterceptor.getAcceptValue());
+            inputHeaders.put("Authorization", exceptionHandlingInterceptor.getAuthHeader());
             Map<String, Object> inputQuery = new HashMap<>();
-            inputQuery.put("path", "/");
+            inputQuery.put("path", path);
             HttpResponse<JsonNode> response =
-                    get(BASE_URL + "/folders/contents").queryString(inputQuery).headers(inputHeaders).asJson();
+                    get(BASE_URL + "/folders/contents/").queryString(inputQuery).headers(inputHeaders).asJson();
             System.out.println(response.getStatus());
             System.out.println(response.getBody());
         } catch (Exception e) {
@@ -123,43 +127,27 @@ public class DocClientServiceImpl implements DocClientService {
     @Override
     @RequestMapping(value = "/delete", method = RequestMethod.DELETE)
     public Body deleteFile(@RequestParam("path") String path) throws Exception {
-
         char ch = path.charAt(0);
         if (path == "") {
+
             throw new ServiceException(HttpStatus.BAD_REQUEST, "Please specify Name of the file");
         }
-        if (String.valueOf(ch) != "/") {
+        if (!String.valueOf(ch).equals(SLASH)) {
+
             throw new ServiceException(HttpStatus.BAD_REQUEST, "Please add / before Name of the file");
         }
-
         try {
             Map<String, String> inputHeaders = new HashMap<>();
-            inputHeaders.put("accept", CONTENT_TYPE);
-            inputHeaders.put("Authorization", AUTHORIZATION);
+            inputHeaders.put(ACCEPT, exceptionHandlingInterceptor.getAcceptValue());
+            inputHeaders.put(AUTHORIZATION, exceptionHandlingInterceptor.getAuthHeader());
             Map<String, Object> inputQuery = new HashMap<>();
             inputQuery.put("path", path);
-
             HttpResponse<String> response =
                     Unirest.delete(BASE_URL + "/files").queryString(inputQuery).headers(inputHeaders).asString();
             System.out.println(response.getStatus());
-
-
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
-
-
-    //    @ExceptionHandler(value = NullPointerExceptions.class)
-    //    public String handleNullPointerException(Exception e){
-    //        System.out.println("Null Pointer Exception Occurred"+e);
-    //        return "Please specify file Name";
-    //    }
-    //
-    //    @ExceptionHandler(value = OtherException.class)
-    //    public String handleOtherException(Exception e){
-    //        System.out.println("Null Pointer Exception Occurred"+e);
-    //        return "Please specify file Name";
-    //    }
 }
